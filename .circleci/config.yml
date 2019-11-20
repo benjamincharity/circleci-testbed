@@ -90,10 +90,7 @@ jobs:
           command: yarn install --frozen-lockfile --non-interactive
       - save_cache:
           name: Save Yarn Cache
-          keys:
-            - yarn-packages-{{ checksum "package.json" }}
-            # fallback to using the latest cache if no exact match is found
-            - yarn-packages-
+          key: yarn-packages-{{ checksum "package.json" }}
           paths:
             - ~/.cache/yarn
 
