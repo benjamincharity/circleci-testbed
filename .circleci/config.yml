@@ -38,11 +38,6 @@ release_tag_filter: &release_tag_filter
   tags:
     only: /^v[0-9.]+.*/
 
-persist_to_workspace: &persist_to_workspace
-  persist_to_workspace:
-    root: .
-    paths: .
-
 attach_workspace: &attach_workspace
   attach_workspace:
     at: '.'
@@ -90,6 +85,7 @@ attach_workspace: &attach_workspace
 # Jobs
 #
 jobs:
+
   setup:
     <<: *defaults
     steps:
@@ -107,7 +103,10 @@ jobs:
           key: yarn-packages-{{ checksum "package.json" }}
           paths:
             - ~/.cache/yarn
-      - *persist_to_workspace
+      - persist_to_workspace:
+          root: .
+          paths:
+            - ./*
 
   lint:
     <<: *defaults
@@ -132,7 +131,6 @@ jobs:
       #- store_artifacts:
           #path: coverage/
           #destination: ~/coverage/
-      - *persist_to_workspace
 
   build:
     <<: *defaults
@@ -147,7 +145,10 @@ jobs:
       #- store_artifacts:
           #path: /home/circleci/.npm/_logs/
           #destination: ~/npm_logs/
-      - *persist_to_workspace
+      - persist_to_workspace:
+          root: .
+          paths:
+            - ./dist/terminus-ui/*
 
   publish_library:
     <<: *defaults
@@ -170,7 +171,10 @@ jobs:
       #- store_artifacts:
           #path: /home/circleci/ci-build/dist/app/
           #destination: ~/demo/
-      - *persist_to_workspace
+      - persist_to_workspace:
+          root: .
+          paths:
+            - ./dist/app/*
 
   deploy_demos:
     <<: *defaults
