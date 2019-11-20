@@ -100,7 +100,7 @@ jobs:
           command: yarn install --frozen-lockfile --non-interactive
       - run:
           name: Prune node_modules
-          command: yarn autoclean
+          command: yarn autoclean --force
       - save_cache:
           name: Save Yarn Cache
           key: yarn-packages-{{ checksum "package.json" }}
