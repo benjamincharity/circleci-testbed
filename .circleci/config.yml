@@ -142,6 +142,9 @@ jobs:
       - run:
           name: Rename Primary Typings File
           command: echo "Renaming typings file"
+      - run:
+          name: Fake build
+          command: mkdir dist && mkdir dist/terminus-ui && touch dist/terminus-ui/README.md
       #- store_artifacts:
           #path: /home/circleci/.npm/_logs/
           #destination: ~/npm_logs/
@@ -168,6 +171,9 @@ jobs:
       - run:
           name: Update Package Versions for Demo Build
           command: echo "Updating package versions"
+      - run:
+          name: Fake demos build
+          command: mkdir dist/app && touch dist/app/README_APP.md
       #- store_artifacts:
           #path: /home/circleci/ci-build/dist/app/
           #destination: ~/demo/
