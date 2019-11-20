@@ -1,46 +1,54 @@
-version: 2
+version: 2.1
 
 
 #
 # Reusable definitions
 #
+references:
+  # Basic defaults that most jobs will need.
+  defaults: &defaults
+    working_directory: ~/ci-build
+    docker:
+      - image: getterminus/terminus-ui-circleci:12.9.1-20190905162749
+    environment:
+      TEST_REPORTS: /coverage
 
-# Basic defaults that most jobs will need.
-defaults: &defaults
-  working_directory: ~/ci-build
-  docker:
-    - image: getterminus/terminus-ui-circleci:12.9.1-20190905162749
-  environment:
-    TEST_REPORTS: /coverage
+  # Filter to run a job on builds for pull requests only.
+  filter_only_prs: &only_on_pull_requests
+    filters:
+      branches:
+        only:
+          - /pull\/\d+/
 
-# Filter to run a job on builds for pull requests only.
-filter_only_prs: &only_on_pull_requests
-  filters:
-    branches:
-      only:
-        - /pull\/\d+/
+  # Filter to skip a job on builds for pull requests.
+  filter_no_prs: &filter_no_prs
+    filters:
+      branches:
+        ignore:
+          - /pull\/\d+/
 
-# Filter to skip a job on builds for pull requests.
-filter_no_prs: &filter_no_prs
-  filters:
-    branches:
-      ignore:
-        - /pull\/\d+/
+  # Filter to run a job on builds for the release branch only.
+  filter_only_release_branch: &only_on_release_branch
+    filters:
+      branches:
+        only:
+          - /^master$/
 
-# Filter to run a job on builds for the release branch only.
-filter_only_release_branch: &only_on_release_branch
-  filters:
-    branches:
-      only:
-        - /^master$/
+  release_tag_filter: &release_tag_filter
+    tags:
+      only: /^v[0-9.]+.*/
 
-release_tag_filter: &release_tag_filter
-  tags:
-    only: /^v[0-9.]+.*/
+  attach_workspace: &attach_workspace
+    attach_workspace:
+      at: '.'
 
-attach_workspace: &attach_workspace
-  attach_workspace:
-    at: '.'
+  container_config_default: &container_config_default
+    docker:
+      - image: circleci/node:12.9.1
+  container_config_aws: &container_config_aws
+    docker:
+      - image: circleci/node:12.9.1
+
 
 
 #
@@ -209,7 +217,7 @@ jobs:
 # Workflows
 #
 workflows:
-  version: 2
+  version: 2.1
   build_and_test:
     jobs:
       - setup
