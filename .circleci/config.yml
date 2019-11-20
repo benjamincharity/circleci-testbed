@@ -155,7 +155,6 @@ jobs:
   deploy_demos:
     <<: *defaults
     steps:
-      - add_ssh_and_checkout
       - run:
           name: Publish Demos
           command: tooling/ci/demos-deploy.sh
@@ -163,7 +162,6 @@ jobs:
   deploy_docs:
     <<: *defaults
     steps:
-      - add_ssh_and_checkout
       - run:
           name: Generate Documentation
           command: yarn run docs
