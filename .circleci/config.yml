@@ -113,6 +113,9 @@ jobs:
       - run:
           name: Run Tests
           command: echo "Running tests"
+      - run:
+          name: Run Tests
+          command: node index.js
       #- store_test_results:
           #path: coverage/junit/
       #- store_artifacts:
@@ -157,14 +160,14 @@ jobs:
     steps:
       - run:
           name: Publish Demos
-          command: tooling/ci/demos-deploy.sh
+          command: echo "Deploying demos"
 
   deploy_docs:
     <<: *defaults
     steps:
       - run:
           name: Generate Documentation
-          command: yarn run docs
+          command: echo "Generating docs"
       - run:
           name: Upload Documentation
           command: echo "Uploading docs"
