@@ -38,6 +38,14 @@ release_tag_filter: &release_tag_filter
   tags:
     only: /^v[0-9.]+.*/
 
+persist_to_workspace: &persist_to_workspace
+  persist_to_workspace:
+    root: .
+    paths: .
+
+attach_workspace: &attach_workspace
+  attach_workspace:
+    at: '.'
 
 
 #
@@ -99,10 +107,12 @@ jobs:
           key: yarn-packages-{{ checksum "package.json" }}
           paths:
             - ~/.cache/yarn
+      - *persist_to_workspace
 
   lint:
     <<: *defaults
     steps:
+      - *attach_workspace
       - run:
           name: Lint
           command: echo "Running linters"
@@ -110,6 +120,7 @@ jobs:
   test:
     <<: *defaults
     steps:
+      - *attach_workspace
       - run:
           name: Run Tests
           command: echo "Running tests"
@@ -121,10 +132,12 @@ jobs:
       #- store_artifacts:
           #path: coverage/
           #destination: ~/coverage/
+      - *persist_to_workspace
 
   build:
     <<: *defaults
     steps:
+      - *attach_workspace
       - run:
           name: Build Project
           command: echo "Building"
@@ -134,10 +147,12 @@ jobs:
       #- store_artifacts:
           #path: /home/circleci/.npm/_logs/
           #destination: ~/npm_logs/
+      - *persist_to_workspace
 
   publish_library:
     <<: *defaults
     steps:
+      - *attach_workspace
       - run:
           name: Release
           command: echo "Running release"
@@ -145,6 +160,7 @@ jobs:
   build_demos:
     <<: *defaults
     steps:
+      - *attach_workspace
       - run:
           name: Build Demos with AoT
           command: echo "Building demos"
@@ -154,10 +170,12 @@ jobs:
       #- store_artifacts:
           #path: /home/circleci/ci-build/dist/app/
           #destination: ~/demo/
+      - *persist_to_workspace
 
   deploy_demos:
     <<: *defaults
     steps:
+      - *attach_workspace
       - run:
           name: Publish Demos
           command: echo "Deploying demos"
@@ -165,6 +183,7 @@ jobs:
   deploy_docs:
     <<: *defaults
     steps:
+      - *attach_workspace
       - run:
           name: Generate Documentation
           command: echo "Generating docs"
