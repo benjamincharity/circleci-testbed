@@ -1,4 +1,4 @@
-version: 2.1
+version: 2
 
 
 #
@@ -37,36 +37,36 @@ filter_only_release_branch: &only_on_release_branch
 #
 # Commands
 #
-commands:
-  add_ssh_and_checkout:
-    description: "Add SSH keys and checkout code."
-    steps:
-      - add_ssh_keys
-      - checkout
-  save_yarn_cache:
-    description: "Update the Yarn packages cache."
-    steps:
-      - save_cache:
-          name: Save Yarn Cache
-          keys:
-            - yarn-packages-{{ checksum "package.json" }}
-            # fallback to using the latest cache if no exact match is found
-            - yarn-packages-
-          paths:
-            - ~/.cache/yarn
-  restore_yarn_cache:
-    description: "Restore the Yarn packages cache."
-    steps:
-      - restore_cache:
-          name: Restore Yarn Cache
-          keys:
-            - yarn-packages-{{ checksum "yarn.lock" }}
-  install_dependencies:
-    description: "Install Yarn dependencies."
-    steps:
-      - run:
-          name: Install Dependencies
-          command: yarn install --frozen-lockfile --non-interactive
+#commands:
+  #add_ssh_and_checkout:
+    #description: "Add SSH keys and checkout code."
+    #steps:
+      #- add_ssh_keys
+      #- checkout
+  #save_yarn_cache:
+    #description: "Update the Yarn packages cache."
+    #steps:
+      #- save_cache:
+          #name: Save Yarn Cache
+          #keys:
+            #- yarn-packages-{{ checksum "package.json" }}
+            ## fallback to using the latest cache if no exact match is found
+            #- yarn-packages-
+          #paths:
+            #- ~/.cache/yarn
+  #restore_yarn_cache:
+    #description: "Restore the Yarn packages cache."
+    #steps:
+      #- restore_cache:
+          #name: Restore Yarn Cache
+          #keys:
+            #- yarn-packages-{{ checksum "yarn.lock" }}
+  #install_dependencies:
+    #description: "Install Yarn dependencies."
+    #steps:
+      #- run:
+          #name: Install Dependencies
+          #command: yarn install --frozen-lockfile --non-interactive
 
 
 
@@ -79,10 +79,23 @@ jobs:
   setup:
     <<: *defaults
     steps:
-      - add_ssh_and_checkout
-      - restore_yarn_cache
-      - install_dependencies
-      - save_yarn_cache
+      - add_ssh_keys
+      - checkout
+      - restore_cache:
+          name: Restore Yarn Cache
+          keys:
+            - yarn-packages-{{ checksum "yarn.lock" }}
+      - run:
+          name: Install Dependencies
+          command: yarn install --frozen-lockfile --non-interactive
+      - save_cache:
+          name: Save Yarn Cache
+          keys:
+            - yarn-packages-{{ checksum "package.json" }}
+            # fallback to using the latest cache if no exact match is found
+            - yarn-packages-
+          paths:
+            - ~/.cache/yarn
 
   lint:
     <<: *defaults
@@ -116,7 +129,7 @@ jobs:
           #path: /home/circleci/.npm/_logs/
           #destination: ~/npm_logs/
 
-  publish:
+  publish_library:
     <<: *defaults
     steps:
       - run:
@@ -156,23 +169,34 @@ jobs:
           command: echo "Uploading docs"
 
 workflows:
-  version: 2.1
+  version: 2
   build_and_test:
     jobs:
       - setup
-      - lint
+      - lint:
           requires:
             - setup
-      - build
+      - build:
           requires:
             - setup
-      - test
+      - test:
           requires:
             - setup
 
-  #deploy:
-    #jobs:
-      #- deploy
+      - publish_library:
+          requires:
+            - lint
+            - build
+            - test
+      - deploy_docs:
+          requires:
+            - publish_library
+      - build_demos:
+          requires:
+            - publish_library
+      - deploy_demos:
+          requires:
+            - build_demos
 
 
 
