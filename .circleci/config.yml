@@ -1,0 +1,185 @@
+version: 2.1
+
+#
+# Reusable definitions
+#
+
+# Basic defaults that most jobs will need.
+defaults: &defaults
+  working_directory: ~/ci-build
+  docker:
+    - image: getterminus/terminus-ui-circleci:12.9.1-20190905162749
+  environment:
+    TEST_REPORTS: /coverage
+
+# Filter to run a job on builds for pull requests only.
+filter_only_prs: &only_on_pull_requests
+  filters:
+    branches:
+      only:
+        - /pull\/\d+/
+
+# Filter to skip a job on builds for pull requests.
+filter_no_prs: &filter_no_prs
+  filters:
+    branches:
+      ignore:
+        - /pull\/\d+/
+
+# Filter to run a job on builds for the release branch only.
+filter_only_release_branch: &only_on_release_branch
+  filters:
+    branches:
+      only:
+        - /^master$/
+
+#
+# Commands
+#
+commands:
+  add_ssh_and_checkout:
+    description: "Add SSH keys and checkout code."
+    steps:
+      - add_ssh_keys
+      - checkout
+  save_yarn_cache:
+    description: "Update the Yarn packages cache."
+    steps:
+      - save_cache:
+          name: Save Yarn Cache
+          keys:
+            - yarn-packages-{{ checksum "package.json" }}
+            # fallback to using the latest cache if no exact match is found
+            - yarn-packages-
+          paths:
+            - ~/.cache/yarn
+  restore_yarn_cache:
+    description: "Restore the Yarn packages cache."
+    steps:
+      - restore_cache:
+          name: Restore Yarn Cache
+          keys:
+            - yarn-packages-{{ checksum "yarn.lock" }}
+  install_dependencies:
+    description: "Install Yarn dependencies."
+    steps:
+      - run:
+          name: Install Dependencies
+          command: yarn install --frozen-lockfile --non-interactive
+
+
+
+
+
+#
+# Jobs
+#
+jobs:
+  setup:
+    <<: *defaults
+    steps:
+      - add_ssh_and_checkout
+      - restore_yarn_cache
+      - install_dependencies
+      - save_yarn_cache
+
+  lint:
+    <<: *defaults
+    steps:
+      - run:
+          name: Lint
+          command: echo "Running linters"
+
+  test:
+    <<: *defaults
+    steps:
+      - run:
+          name: Run Tests
+          command: echo "Running tests"
+      #- store_test_results:
+          #path: coverage/junit/
+      #- store_artifacts:
+          #path: coverage/
+          #destination: ~/coverage/
+
+  build:
+    <<: *defaults
+    steps:
+      - run:
+          name: Build Project
+          command: echo "Building"
+      - run:
+          name: Rename Primary Typings File
+          command: echo "Renaming typings file"
+      #- store_artifacts:
+          #path: /home/circleci/.npm/_logs/
+          #destination: ~/npm_logs/
+
+  publish:
+    <<: *defaults
+    steps:
+      - run:
+          name: Release
+          command: echo "Running release"
+
+  build_demos:
+    <<: *defaults
+    steps:
+      - run:
+          name: Build Demos with AoT
+          command: echo "Building demos"
+      - run:
+          name: Update Package Versions for Demo Build
+          command: echo "Updating package versions"
+      #- store_artifacts:
+          #path: /home/circleci/ci-build/dist/app/
+          #destination: ~/demo/
+
+  deploy_demos:
+    <<: *defaults
+    steps:
+      - add_ssh_and_checkout
+      - run:
+          name: Publish Demos
+          command: tooling/ci/demos-deploy.sh
+
+  deploy_docs:
+    <<: *defaults
+    steps:
+      - add_ssh_and_checkout
+      - run:
+          name: Generate Documentation
+          command: yarn run docs
+      - run:
+          name: Upload Documentation
+          command: echo "Uploading docs"
+
+workflows:
+  version: 2.1
+  build_and_test:
+    jobs:
+      - setup
+      - lint
+          requires:
+            - setup
+      - build
+          requires:
+            - setup
+      - test
+          requires:
+            - setup
+
+  #deploy:
+    #jobs:
+      #- deploy
+
+
+
+
+# HACK: This will allow tags to kick off the deploy process. Correct syntax support is coming soon:
+# https://discuss.circleci.com/t/git-tag-deploys-in-2-0/9493/8
+#deployment:
+  #fake_deploy_for_cci2:
+    #tag: /.*/
+    #commands:
+      #- echo "make tags run in 2.0"
