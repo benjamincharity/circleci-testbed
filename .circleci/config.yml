@@ -1,71 +1,89 @@
 version: 2.1
 
+
 #
 # Reusable definitions
 #
+references:
+  # Basic defaults that most jobs will need.
+  defaults: &defaults
+    working_directory: ~/ci-build
+    docker:
+      - image: getterminus/terminus-ui-circleci:12.9.1-20190905162749
+    environment:
+      TEST_REPORTS: /coverage
 
-# Basic defaults that most jobs will need.
-defaults: &defaults
-  working_directory: ~/ci-build
-  docker:
-    - image: getterminus/terminus-ui-circleci:12.9.1-20190905162749
-  environment:
-    TEST_REPORTS: /coverage
+  # Filter to run a job on builds for pull requests only.
+  filter_only_prs: &only_on_pull_requests
+    filters:
+      branches:
+        only:
+          - /pull\/\d+/
 
-# Filter to run a job on builds for pull requests only.
-filter_only_prs: &only_on_pull_requests
-  filters:
-    branches:
-      only:
-        - /pull\/\d+/
+  # Filter to skip a job on builds for pull requests.
+  filter_no_prs: &filter_no_prs
+    filters:
+      branches:
+        ignore:
+          - /pull\/\d+/
 
-# Filter to skip a job on builds for pull requests.
-filter_no_prs: &filter_no_prs
-  filters:
-    branches:
-      ignore:
-        - /pull\/\d+/
+  # Filter to run a job on builds for the release branch only.
+  filter_only_release_branch: &only_on_release_branch
+    filters:
+      branches:
+        only:
+          - /^master$/
 
-# Filter to run a job on builds for the release branch only.
-filter_only_release_branch: &only_on_release_branch
-  filters:
-    branches:
-      only:
-        - /^master$/
+  release_tag_filter: &release_tag_filter
+    tags:
+      only: /^v[0-9.]+.*/
+
+  attach_workspace: &attach_workspace
+    attach_workspace:
+      at: '.'
+
+  container_config_default: &container_config_default
+    docker:
+      - image: circleci/node:12.9.1
+  container_config_aws: &container_config_aws
+    docker:
+      - image: circleci/node:12.9.1
+
+
 
 #
 # Commands
 #
-commands:
-  add_ssh_and_checkout:
-    description: "Add SSH keys and checkout code."
-    steps:
-      - add_ssh_keys
-      - checkout
-  save_yarn_cache:
-    description: "Update the Yarn packages cache."
-    steps:
-      - save_cache:
-          name: Save Yarn Cache
-          keys:
-            - yarn-packages-{{ checksum "package.json" }}
-            # fallback to using the latest cache if no exact match is found
-            - yarn-packages-
-          paths:
-            - ~/.cache/yarn
-  restore_yarn_cache:
-    description: "Restore the Yarn packages cache."
-    steps:
-      - restore_cache:
-          name: Restore Yarn Cache
-          keys:
-            - yarn-packages-{{ checksum "yarn.lock" }}
-  install_dependencies:
-    description: "Install Yarn dependencies."
-    steps:
-      - run:
-          name: Install Dependencies
-          command: yarn install --frozen-lockfile --non-interactive
+#commands:
+  #add_ssh_and_checkout:
+    #description: "Add SSH keys and checkout code."
+    #steps:
+      #- add_ssh_keys
+      #- checkout
+  #save_yarn_cache:
+    #description: "Update the Yarn packages cache."
+    #steps:
+      #- save_cache:
+          #name: Save Yarn Cache
+          #keys:
+            #- yarn-packages-{{ checksum "package.json" }}
+            ## fallback to using the latest cache if no exact match is found
+            #- yarn-packages-
+          #paths:
+            #- ~/.cache/yarn
+  #restore_yarn_cache:
+    #description: "Restore the Yarn packages cache."
+    #steps:
+      #- restore_cache:
+          #name: Restore Yarn Cache
+          #keys:
+            #- yarn-packages-{{ checksum "yarn.lock" }}
+  #install_dependencies:
+    #description: "Install Yarn dependencies."
+    #steps:
+      #- run:
+          #name: Install Dependencies
+          #command: yarn install --frozen-lockfile --non-interactive
 
 
 
@@ -75,17 +93,36 @@ commands:
 # Jobs
 #
 jobs:
+
   setup:
     <<: *defaults
     steps:
-      - add_ssh_and_checkout
-      - restore_yarn_cache
-      - install_dependencies
-      - save_yarn_cache
+      - add_ssh_keys
+      - checkout
+      - restore_cache:
+          name: Restore Yarn Cache
+          keys:
+            - yarn-packages-{{ checksum "yarn.lock" }}
+      - run:
+          name: Install Dependencies
+          command: yarn install --frozen-lockfile --non-interactive
+      - run:
+          name: Prune node_modules
+          command: yarn autoclean --force
+      - save_cache:
+          name: Save Yarn Cache
+          key: yarn-packages-{{ checksum "package.json" }}
+          paths:
+            - ~/.cache/yarn
+      - persist_to_workspace:
+          root: .
+          paths:
+            - ./*
 
   lint:
     <<: *defaults
     steps:
+      - *attach_workspace
       - run:
           name: Lint
           command: echo "Running linters"
@@ -93,9 +130,13 @@ jobs:
   test:
     <<: *defaults
     steps:
+      - *attach_workspace
       - run:
           name: Run Tests
           command: echo "Running tests"
+      - run:
+          name: Run Tests
+          command: node index.js
       #- store_test_results:
           #path: coverage/junit/
       #- store_artifacts:
@@ -105,19 +146,28 @@ jobs:
   build:
     <<: *defaults
     steps:
+      - *attach_workspace
       - run:
           name: Build Project
           command: echo "Building"
       - run:
           name: Rename Primary Typings File
           command: echo "Renaming typings file"
+      - run:
+          name: Fake build
+          command: mkdir dist && mkdir dist/terminus-ui && touch dist/terminus-ui/README.md
       #- store_artifacts:
           #path: /home/circleci/.npm/_logs/
           #destination: ~/npm_logs/
+      - persist_to_workspace:
+          root: .
+          paths:
+            - ./dist/terminus-ui/*
 
-  publish:
+  publish_library:
     <<: *defaults
     steps:
+      - *attach_workspace
       - run:
           name: Release
           command: echo "Running release"
@@ -125,53 +175,80 @@ jobs:
   build_demos:
     <<: *defaults
     steps:
+      - *attach_workspace
       - run:
           name: Build Demos with AoT
           command: echo "Building demos"
       - run:
           name: Update Package Versions for Demo Build
           command: echo "Updating package versions"
+      - run:
+          name: Fake demos build
+          command: mkdir dist/app && touch dist/app/README_APP.md
       #- store_artifacts:
           #path: /home/circleci/ci-build/dist/app/
           #destination: ~/demo/
+      - persist_to_workspace:
+          root: .
+          paths:
+            - ./dist/app/*
 
   deploy_demos:
     <<: *defaults
     steps:
-      - add_ssh_and_checkout
+      - *attach_workspace
       - run:
           name: Publish Demos
-          command: tooling/ci/demos-deploy.sh
+          command: echo "Deploying demos"
 
   deploy_docs:
     <<: *defaults
     steps:
-      - add_ssh_and_checkout
+      - *attach_workspace
       - run:
           name: Generate Documentation
-          command: yarn run docs
+          command: echo "Generating docs"
       - run:
           name: Upload Documentation
           command: echo "Uploading docs"
 
+
+#
+# Workflows
+#
 workflows:
   version: 2.1
   build_and_test:
     jobs:
       - setup
-      - lint
+      - lint:
           requires:
             - setup
-      - build
+      - build:
           requires:
             - setup
-      - test
+      - test:
           requires:
             - setup
 
-  #deploy:
-    #jobs:
-      #- deploy
+      - publish_library:
+          filters: *release_tag_filter
+          requires:
+            - lint
+            - build
+            - test
+      - deploy_docs:
+          filters: *release_tag_filter
+          requires:
+            - publish_library
+      - build_demos:
+          filters: *release_tag_filter
+          requires:
+            - publish_library
+      - deploy_demos:
+          filters: *release_tag_filter
+          requires:
+            - build_demos
 
 
 
